@@ -34,6 +34,8 @@ $RECYCLE.BIN/
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
+*.csv
+*.txt
 .Spotlight-V100
 .TemporaryItems
 .Trashes
@@ -44,4 +46,5 @@ $RECYCLE.BIN/
 .AppleDesktop
 Network Trash Folder
 Temporary Items
+node_modules
 .apdisk
