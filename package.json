@@ -1,0 +1,32 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "work regarding the ensighten API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Ensighten",
+    "API"
+  ],
+  "author": "Alex Donoso",
+  "license": "ISC",
+  "dependencies": {
+    "btoa": "^1.1.2",
+    "fs": "^0.0.2",
+    "json2csv": "^3.4.1",
+    "prompt": "^1.0.0",
+    "request": "^2.72.0",
+    "prompt-sync": "^4.0.4"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuclimber/ensightenApi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kuclimber/ensightenApi/issues"
+  },
+  "homepage": "https://github.com/kuclimber/ensightenApi#readme"
+}
