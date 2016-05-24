@@ -3,6 +3,8 @@ var request = require('request'); // Used to facilitate the API requests
 var prompt = require('prompt'); // USed for the prompts
 var fs = require('fs'); // Used to save files
 var json2csv = require('json2csv'); // Used to convert JSON to CSV for Export Functions
+var nestedjson2csv = require('nestedjson2csv'); // Used to convert JSON to CSV for Export Functions
+var querystring = require('querystring');
 var authKey = '';
 var bearerKey = '';
 var spaceNames = [];
@@ -48,7 +50,7 @@ var login = {
                 console.log(results.message);
                 console.log(results.description);
                 console.log('\nPlease try Again')
-                authenticationStart();
+                login.authenticationStart();
             } else {
                 bearerKey = results.access_token;
                 login.getAccountinfo(results.access_token);
@@ -108,16 +110,19 @@ var actions = {
      * Calls appropriate method dependent on what action is desired */
     promptForCommand: function(activeSpace, bearerKey) {
         console.log('\nWhat would you like to do?');
-        console.log('1: Export csv of existing deployments?');
-        console.log('2: Create a new deployments.');
-        console.log('3: Exit');
+        console.log('1: Export csv of existing deployments.');
+        console.log('2: Export csv of conditions.');
+        console.log('3: Create a new deployments.');
+        console.log('4: Exit');
         prompt.start()
         prompt.get(['Option'], function(err, result) {
             if (result.Option == '1') {
                 actions.exportDeployments(activeSpace, bearerKey);
-            } else if (result.Option == '3') {
-                process.exit();
             } else if (result.Option == '2') {
+                actions.exportConditions.getConditions(activeSpace, bearerKey);
+            } else if (result.Option == '4') {
+                process.exit();
+            } else if (result.Option == '3') {
                 actions.createDeployment.provideDeploymentName(activeSpace, bearerKey);
             }
         });
@@ -135,7 +140,7 @@ var actions = {
                 'Authorization': 'Bearer ' + bearerKey,
                 'Accept': 'application/json'
             },
-            body: '{  \"fields\": \"id, name, status, labels, creationDate\", \"sort\": \"+name\", \"filters\": {    \"spaceId\": [' + activeSpace.id + ']  }}'
+            body: '{  \"fields\": \"id, name, code, status, labels, creationDate\", \"sort\": \"+name\", \"filters\": {    \"spaceId\": [' + activeSpace.id + ']  }}'
         }, function(error, response, body) {
             console.log(response.statusCode)
             var results = JSON.parse(body);
@@ -143,7 +148,7 @@ var actions = {
                 console.log('***Error***');
             }
             var deployments = JSON.parse(body);
-            var fields = ['id', 'name', 'status', 'labels', 'creationDate'];
+            var fields = ['id', 'name', 'code', 'status', 'labels', 'creationDate'];
 
 
             json2csv({
@@ -158,6 +163,79 @@ var actions = {
             });
         });
 
+    },
+
+    /*this set of methods is used to get the export the conditions in the selected spaces*/
+
+
+    exportConditions: {
+        /* method takes in the JSON object of conditions, and filters it down to only the conditions that used in the active space */
+        filterConditionstoActiveSpace: function(activeSpace, conditions) {
+            var cArray = [];
+
+            for (var i = 0; i < conditions.length; i++) {
+                for (var j = 0; j < conditions[i].deployments.length; j++) {
+                    if (conditions[i].deployments[j].spaceId == activeSpace.id) {
+                        cArray.push(conditions[i]);
+                        break;
+                    }
+                }
+            }
+
+            return JSON.stringify(cArray);
+        },
+
+        /*This method calls a seperate API which will parse the returned JSON and prepare a CSV value*/
+        callJsonParseApi: function(selectedConditons, fileName) {
+            var form = {
+                email: 'kuclimber@gmail.com',
+                json: selectedConditons
+            }
+
+            var formData = querystring.stringify(form);
+
+            request({
+                    method: 'POST',
+                    url: 'https://json-csv.com/api/getcsv',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData
+
+                },
+                function(error, response, body) {
+                    fs.writeFile(fileName, body, function(err) {
+                        if (err) throw err;
+                        console.log('file saved');readAsDataURL(file|blob)
+                        actions.promptForCommand(activeSpace, bearerKey);
+                    });
+                });
+        },
+
+        /* This Method is the inital request to the Ensighten API for the conditions
+         * returns all conditions in the account */
+        getConditions: function(activeSpace, bearerKey) {
+
+            var fileName = activeSpace.name.replace(' ', '_') + '_conditions.csv';
+            request({
+                method: 'GET',
+                url: 'https://manage-api.ensighten.com/manage/conditions',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + bearerKey,
+                },
+            }, function(error, response, body) {
+                console.log(response.statusCode)
+
+
+                if (response.statusCode !== 200) {
+                    console.log('***Error***');
+                }
+                var conditions = JSON.parse(body);
+                var selectedConditons = actions.exportConditions.filterConditionstoActiveSpace(activeSpace, conditions);
+                actions.exportConditions.callJsonParseApi(selectedConditons, fileName);
+            });
+        }
     },
 
     /* The createDeployment object houses all the methods that are needed to create a new deployement via the API
@@ -272,5 +350,6 @@ var actions = {
         }
     }
 }
-/* Initializes the Command Line API Interface */
+
+/* Initializes the Command Line API Interface*/
 login.authenticationStart();
