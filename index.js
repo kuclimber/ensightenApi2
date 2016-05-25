@@ -3,7 +3,6 @@ var request = require('request'); // Used to facilitate the API requests
 var prompt = require('prompt'); // USed for the prompts
 var fs = require('fs'); // Used to save files
 var json2csv = require('json2csv'); // Used to convert JSON to CSV for Export Functions
-var nestedjson2csv = require('nestedjson2csv'); // Used to convert JSON to CSV for Export Functions
 var querystring = require('querystring');
 var authKey = '';
 var bearerKey = '';
@@ -166,11 +165,54 @@ var actions = {
     },
 
     /*this set of methods is used to get the export the conditions in the selected spaces*/
-
-
     exportConditions: {
+        /*if the user opts to filter the conditions in the active space this method loops through the provided array of conditions and tests the provided url against each of the appropriate sets of regex
+         * returns an array of matching conditions*/
+        filterConditionsByUrl: function(conditions, fileName) {
+            console.log('Please provide the url you would like to test')
+            prompt.start();
+            prompt.get('url', function(err, result) {
+                
+                var matchedConditions = []
+                for (var i = 0; i < conditions.length; i++) {
+                    var testResults = true;
+                    for (var j = 0; j < conditions[i].conditionValues.length; j++) {
+                        if (conditions[i].conditionValues[j].typeId == 2 || conditions[i].conditionValues[j].typeId == 4 || conditions[i].conditionValues[j].typeId == 7 || conditions[i].conditionValues[j].typeId == 10 || conditions[i].conditionValues[j].typeId == 11) {
+                            if (conditions[i].conditionValues[j].comparatorId === 3) {
+                                var expression = conditions[i].conditionValues[j].value
+                                expression = expression.replace('^','');
+                                expression = expression.replace('$','');
+                
+                                var re = new RegExp(expression)
+                                if (!re.test(result.url)) {
+                                    testResults = false;
+                                };
+                            }
+                        }
+                    }
+                if (testResults) {
+                        matchedConditions.push(conditions[i]);
+                    }
+                }
+                actions.exportConditions.callJsonParseApi(JSON.stringify(matchedConditions), fileName);
+            });
+        },
+        /* Prompt asking if the user wants to filter the available conditions by url
+         * if yes calls method to perform fitlering
+         * if no returns the original array of conditions */
+        isFilteredByUrl: function(conditions, fileName) {
+            console.log('Would you like to filter the conditions by a test url? (y/n)')
+            prompt.start();
+            prompt.get('test', function(err, result) {
+                if (result.test === 'y') {
+                    actions.exportConditions.filterConditionsByUrl(conditions, fileName);
+                } else if (result.test === 'n')
+                    actions.exportConditions.callJsonParseApi(JSON.stringify(conditions), fileName);
+            });
+        },
+
         /* method takes in the JSON object of conditions, and filters it down to only the conditions that used in the active space */
-        filterConditionstoActiveSpace: function(activeSpace, conditions) {
+        filterConditionstoActiveSpace: function(activeSpace, conditions, fileName) {
             var cArray = [];
 
             for (var i = 0; i < conditions.length; i++) {
@@ -181,15 +223,15 @@ var actions = {
                     }
                 }
             }
-
-            return JSON.stringify(cArray);
+            actions.exportConditions.isFilteredByUrl(cArray, fileName);
         },
 
         /*This method calls a seperate API which will parse the returned JSON and prepare a CSV value*/
-        callJsonParseApi: function(selectedConditons, fileName) {
+        callJsonParseApi: function(selectedConditions, fileName) {
+            console.log('made it to where parse api is called');
             var form = {
                 email: 'kuclimber@gmail.com',
-                json: selectedConditons
+                json: selectedConditions
             }
 
             var formData = querystring.stringify(form);
@@ -206,7 +248,8 @@ var actions = {
                 function(error, response, body) {
                     fs.writeFile(fileName, body, function(err) {
                         if (err) throw err;
-                        console.log('file saved');readAsDataURL(file|blob)
+                        console.log('file saved');
+
                         actions.promptForCommand(activeSpace, bearerKey);
                     });
                 });
@@ -225,15 +268,13 @@ var actions = {
                     'Authorization': 'Bearer ' + bearerKey,
                 },
             }, function(error, response, body) {
-                console.log(response.statusCode)
-
-
                 if (response.statusCode !== 200) {
                     console.log('***Error***');
                 }
                 var conditions = JSON.parse(body);
-                var selectedConditons = actions.exportConditions.filterConditionstoActiveSpace(activeSpace, conditions);
-                actions.exportConditions.callJsonParseApi(selectedConditons, fileName);
+                selectedConditions = actions.exportConditions.filterConditionstoActiveSpace(activeSpace, conditions, fileName);
+                //var filteredConditions = actions.exportConditions.isFilteredByUrl(selectedConditions, fileName);
+                //actions.exportConditions.callJsonParseApi(filteredConditions, fileName);
             });
         }
     },
