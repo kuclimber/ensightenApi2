@@ -408,6 +408,7 @@ var actions = {
                     }, function(error, response, body) {
                         var results = JSON.parse(body);
                         if (response.statusCode == '201') {
+                            
                             console.log('\nThe deployment was successfully created');
                             console.log('The new deployment id is:' + results.id);
                         } else {
